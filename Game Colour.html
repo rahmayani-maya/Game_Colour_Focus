@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Color Switch</title>
+  <link rel="icon" href="logos.png" type="image/png">
+  <style>
+    :root {
+      --bg: #0f172a;
+      --text: #e5e7eb;
+      --accent: #8b5cf6;
+      --red: #ef4444;
+      --green: #22c55e;
+      --blue: #3b82f6;
+      --yellow: #eab308;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: linear-gradient(135deg, #0c111b, #1a1c2a);
+      color: var(--text);
+      font-family: system-ui, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 20px;
+      text-align: center;
+    }
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 10px;
+      color: #e879f9;
+    }
+    .instructions {
+      font-size: 1.1rem;
+      opacity: 0.9;
+      margin-bottom: 16px;
+      max-width: 500px;
+    }
+    .stats {
+      display: flex;
+      gap: 20px;
+      margin: 10px 0 20px;
+      font-size: 1.2rem;
+      font-weight: bold;
+    }
+    .stat {
+      background: rgba(139, 92, 246, 0.2);
+      padding: 8px 12px;
+      border-radius: 10px;
+      min-width: 80px;
+    }
+    #question {
+      font-size: 1.4rem;
+      font-weight: bold;
+      margin: 10px 0 20px;
+      color: #fbbf24;
+    }
+    #options {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      justify-content: center;
+      max-width: 500px;
+      margin-bottom: 20px;
+    }
+    .option {
+      font-size: 1.8rem;
+      font-weight: bold;
+      padding: 10px 16px;
+      border-radius: 12px;
+      cursor: pointer;
+      user-select: none;
+      transition: transform 0.1s;
+    }
+    .option:hover {
+      transform: scale(1.05);
+    }
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.9);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      color: white;
+      text-align: center;
+      padding: 20px;
+      display: none;
+    }
+    .overlay h2 {
+      margin: 0 0 12px;
+      color: #e879f9;
+    }
+    .overlay button {
+      margin-top: 12px;
+      padding: 10px 20px;
+      background: #8b5cf6;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <h1>🎨 Color Switch</h1>
+  <p class="instructions">Klik sesuai petunjuk. Waspada tipu muslihat warna!</p>
+
+  <div class="stats">
+    <div class="stat">Skor: <span id="score">0</span></div>
+    <div class="stat">Waktu: <span id="time">30</span>s</div>
+    <div class="stat">Terbaik: <span id="best">0</span></div>
+  </div>
+
+  <div id="question">Klik yang WARNA MERAH</div>
+
+  <div id="options"></div>
+
+  <div class="overlay" id="gameOver">
+    <h2>Game Over!</h2>
+    <p>Skor akhir: <strong id="final-score">0</strong></p>
+    <p>Terbaik: <strong id="best-final">0</strong></p>
+    <button id="restart">Main Lagi</button>
+  </div>
+
+  <script>
+    const optionsContainer = document.getElementById('options');
+    const questionEl = document.getElementById('question');
+    const scoreEl = document.getElementById('score');
+    const timeEl = document.getElementById('time');
+    const bestEl = document.getElementById('best');
+    const gameOverOverlay = document.getElementById('gameOver');
+    const finalScoreEl = document.getElementById('final-score');
+    const bestFinalEl = document.getElementById('best-final');
+    const restartBtn = document.getElementById('restart');
+
+    // Daftar warna
+    const colors = [
+      { name: "MERAH", color: "red" },
+      { name: "HIJAU", color: "green" },
+      { name: "BIRU", color: "blue" },
+      { name: "KUNING", color: "yellow" }
+    ];
+
+    let score = 0;
+    let timeLeft = 30;
+    let bestScore = parseInt(localStorage.getItem('color-switch-best')) || 0;
+    let gameActive = true;
+    let timer;
+
+    bestEl.textContent = bestScore;
+
+    // Buat 4 opsi acak
+    function createOptions() {
+      optionsContainer.innerHTML = '';
+      const shuffled = [...colors].sort(() => Math.random() - 0.5);
+
+      shuffled.forEach(item => {
+        const el = document.createElement('div');
+        el.className = 'option';
+        el.textContent = item.name;
+        el.style.color = colors[Math.floor(Math.random() * 4)].color; // warna acak
+        el.dataset.realColor = item.color;
+        el.dataset.text = item.name;
+        el.addEventListener('click', checkAnswer);
+        optionsContainer.appendChild(el);
+      });
+    }
+
+    // Acak pertanyaan
+    function generateQuestion() {
+      const type = Math.random() < 0.5 ? 'color' : 'text';
+      const target = colors[Math.floor(Math.random() * colors.length)];
+
+      if (type === 'color') {
+        questionEl.textContent = `Klik yang WARNA ${target.name}`;
+        questionEl.dataset.type = 'color';
+        questionEl.dataset.target = target.color;
+      } else {
+        questionEl.textContent = `Klik yang TERTULIS ${target.name}`;
+        questionEl.dataset.type = 'text';
+        questionEl.dataset.target = target.name;
+      }
+    }
+
+    function checkAnswer(e) {
+      if (!gameActive) return;
+
+      const el = e.target;
+      const qType = questionEl.dataset.type;
+      const target = questionEl.dataset.target;
+
+      let isCorrect = false;
+
+      if (qType === 'color') {
+        isCorrect = window.getComputedStyle(el).color === getColorValue(target);
+      } else {
+        isCorrect = el.textContent === target;
+      }
+
+      if (isCorrect) {
+        score++;
+        scoreEl.textContent = score;
+        createOptions();
+        generateQuestion();
+      } else {
+        endGame();
+      }
+    }
+
+    // Konversi warna ke format RGB untuk perbandingan
+    function getColorValue(colorName) {
+      const temp = document.createElement('div');
+      temp.style.color = colorName;
+      document.body.appendChild(temp);
+      const rgb = window.getComputedStyle(temp).color;
+      document.body.removeChild(temp);
+      return rgb;
+    }
+
+    function startTimer() {
+      clearInterval(timer);
+      timer = setInterval(() => {
+        timeLeft--;
+        timeEl.textContent = timeLeft;
+        if (timeLeft <= 0) {
+          endGame();
+        }
+      }, 1000);
+    }
+
+    function endGame() {
+      gameActive = false;
+      clearInterval(timer);
+      if (score > bestScore) {
+        bestScore = score;
+        localStorage.setItem('color-switch-best', bestScore);
+      }
+      bestEl.textContent = bestScore;
+      finalScoreEl.textContent = score;
+      bestFinalEl.textContent = bestScore;
+      gameOverOverlay.style.display = 'flex';
+    }
+
+    function resetGame() {
+      score = 0;
+      timeLeft = 30;
+      gameActive = true;
+      scoreEl.textContent = '0';
+      timeEl.textContent = '30';
+      gameOverOverlay.style.display = 'none';
+
+      createOptions();
+      generateQuestion();
+      startTimer();
+    }
+
+    restartBtn.addEventListener('click', resetGame);
+
+    // Mulai game
+    resetGame();
+  </script>
+</body>
+</html>
